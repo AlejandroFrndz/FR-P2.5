@@ -1,7 +1,3 @@
-//
-// YodafyServidorIterativo
-// (CC) jjramos, 2012
-//
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,10 +10,6 @@ import java.io.FileWriter;
 import java.net.Socket;
 import java.util.Scanner;
 
-//
-// Nota: si esta clase extendiera la clase Thread, y el procesamiento lo hiciera el método "run()",
-// ¡Podríamos realizar un procesado concurrente! 
-//
 public class ProcesadorPokedex {
 	// Referencia a un socket para enviar/recibir las peticiones/respuestas
 	private Socket socketServicio;
@@ -27,14 +19,14 @@ public class ProcesadorPokedex {
     private OutputStream outputStream;
     
     private String response;
-    private static String user_logged = "None";
+    private String user_logged = "None";
 	
 	// Constructor que tiene como parámetro una referencia al socket abierto en por otra clase
 	public ProcesadorPokedex(Socket socketServicio) {
 		this.socketServicio=socketServicio;
 	}
     
-    private static String autentificar(String mensaje){
+    private String autentificar(String mensaje){
         String mensajes[];
         String cadena = null;
 
@@ -82,7 +74,7 @@ public class ProcesadorPokedex {
 
     }
 
-    private static String registrar(String mensaje){
+    private String registrar(String mensaje){
         String mensajes[];
         String cadena = null;
 
@@ -157,7 +149,6 @@ public class ProcesadorPokedex {
             }
 
             System.out.println("Usuario logeado: " + user_logged);
-            user_logged = "None";
             			
 		} catch (IOException e) {
 			System.err.println("Error al obtener los flujso de entrada/salida.");
