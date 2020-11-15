@@ -18,7 +18,6 @@ public class ProcesadorPokedex {
 	// stream de escritura (por aquí se envía los datos al cliente)
     private OutputStream outputStream;
     
-    private String response;
     private String user_logged = "None";
 	
 	// Constructor que tiene como parámetro una referencia al socket abierto en por otra clase
@@ -119,11 +118,50 @@ public class ProcesadorPokedex {
         user_logged = user;
         return response;
     }
-	
+    
+    private String registrarPokemon(String pokemon){
+        String response;
+
+        try {
+            File fichero = new File("./" + user_logged + "/" + pokemon + ".pok");
+
+            if(fichero.createNewFile()){
+                response = "200-OK-Pokemon Registrado";
+            }
+            else{
+                response = "405-ERROR-Pokemon ya registrado";
+            }
+        } catch (IOException e) {
+            System.out.println("Error al crear el archivo del pokemon");
+            response = "499-ERROR-Error en el servidor";
+        }
+
+        return response;
+    }
+
+    private void listarPokemon(PrintWriter outPrinter){
+        String filename, pokemon;
+        File folder = new File("./" + user_logged + "/");
+        File[] listOfFiles = folder.listFiles();
+
+        for(File file : listOfFiles){
+            if(file.isFile()){
+                filename = file.getName();
+                pokemon = filename.substring(0, filename.length()-4);
+                outPrinter.println("203-POK-" + pokemon);
+            }
+        }
+
+        outPrinter.println("200-OK-Listado Completado");
+    }
+
 	// Aquí es donde se realiza el procesamiento realmente:
 	void procesa(){
 		
-		String mensajeRecibido;
+        String mensajeRecibido;
+        Boolean servicio = true;
+        String mensajes[];
+        String response = null;
         
         System.out.println("Usuario Actual " + user_logged);
 		
@@ -135,7 +173,6 @@ public class ProcesadorPokedex {
             while(user_logged.equals("None")){
                 mensajeRecibido = inReader.readLine();
                 
-                String mensajes[];
                 mensajes = mensajeRecibido.split("-");
 
                 if(mensajes[0].equals("100")){
@@ -149,9 +186,30 @@ public class ProcesadorPokedex {
             }
 
             System.out.println("Usuario logeado: " + user_logged);
+
+            while(servicio){
+                mensajeRecibido = inReader.readLine();
+                mensajes = mensajeRecibido.split("-");
+
+                if(mensajes[0].equals("102")){
+                    response = registrarPokemon(mensajes[2]);
+                    outPrinter.println(response);
+                }
+
+                if(mensajes[0].equals("103")){
+                    listarPokemon(outPrinter);
+                }
+
+                else if(mensajes[0].equals("105")){
+                    servicio = false;
+                    response = "205-LOGOUT-Bye";
+                }
+            }
+
+            outPrinter.println(response);
             			
 		} catch (IOException e) {
-			System.err.println("Error al obtener los flujso de entrada/salida.");
+			System.err.println("Error al obtener los flujos de entrada/salida.");
 		}
 
 	}
