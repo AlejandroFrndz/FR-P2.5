@@ -1,8 +1,6 @@
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -10,19 +8,18 @@ import java.io.FileWriter;
 import java.net.Socket;
 import java.util.Scanner;
 
-public class ProcesadorPokedex {
+public class ProcesadorPokedex extends Thread{
 	// Referencia a un socket para enviar/recibir las peticiones/respuestas
 	private Socket socketServicio;
-	// stream de lectura (por aquí se recibe lo que envía el cliente)
-	private InputStream inputStream;
-	// stream de escritura (por aquí se envía los datos al cliente)
-    private OutputStream outputStream;
-    
+    // Referencia al servidor para consultar la lista de usuarios con sesión activa y el cerrojo
+    private Servidor server;
+    //Usuario con sesión activa en esta hebra
     private String user_logged = "None";
 	
-	// Constructor que tiene como parámetro una referencia al socket abierto en por otra clase
-	public ProcesadorPokedex(Socket socketServicio) {
-		this.socketServicio=socketServicio;
+	// Constructor que tiene como parámetro una referencia al socket abierto en por otra clase y a un objeto servidor
+	public ProcesadorPokedex(Socket socketServicio, Servidor server) {
+        this.socketServicio=socketServicio;
+        this.server = server;
 	}
     
     private String autentificar(String mensaje){
@@ -35,22 +32,37 @@ public class ProcesadorPokedex {
         String user = mensajes[3];
         String pass = mensajes[5];
 
+        if(server.isLogged(user)){
+            return "406-ERROR-Ya hay una sesión activa para este usuario";
+        }
+
         Boolean user_correct = false, pass_correct = false;
 
         try {
-            File fichero = new File("users.pok");
-            Scanner reader = new Scanner(fichero);
-            while(reader.hasNextLine() && !user_correct){
-                String data = reader.nextLine();
-                String partes[] = data.split(":");
-                if(partes[0].equals(user)){
-                    user_correct = true;
-                    if(partes[1].equals(pass)){
-                        pass_correct = true;
+            File fichero = new File("./Pokedex/users.pok");
+
+            if(!fichero.exists()){
+                return "402-ERROR-El usuario no existe";
+            }
+
+            server.lock.readLock().lock();
+            try{
+                Scanner reader = new Scanner(fichero);
+                while(reader.hasNextLine() && !user_correct){
+                    String data = reader.nextLine();
+                    String partes[] = data.split(":");
+                    if(partes[0].equals(user)){
+                        user_correct = true;
+                        if(partes[1].equals(pass)){
+                            pass_correct = true;
+                        }
                     }
                 }
+                reader.close();
+            } finally{
+                server.lock.readLock().unlock();
             }
-            reader.close();
+            
         } catch (FileNotFoundException e) {
             System.err.println("Error al abrir el archivo de usuarios");
             String response = "499-ERROR-Error en el servidor";
@@ -67,8 +79,9 @@ public class ProcesadorPokedex {
             return response;
         }
 
-        String response = "200-OK-Login correcto";
+        String response = "201-OK-Login correcto";
         user_logged = user;
+        server.login_usuario(user_logged);
         return response;
 
     }
@@ -82,9 +95,9 @@ public class ProcesadorPokedex {
         mensajes = cadena.split("-");
         String user = mensajes[3];
 
-        String path = "./" + user;
+        String path = "./Pokedex/" + user;
         File directory = new File(path);
-        Boolean dir_ok = directory.mkdir();
+        Boolean dir_ok = directory.mkdirs();
 
         if(!dir_ok){
             String response = "401-ERROR-Ya existe este usuario";
@@ -94,8 +107,15 @@ public class ProcesadorPokedex {
         String pass = mensajes[5];
 
         try {
-            File users = new File("users.pok");
-            users.createNewFile();
+            server.lock.writeLock().lock();
+            try{
+                File users = new File("./Pokedex/users.pok");
+                users.getParentFile().mkdirs();
+                users.createNewFile();
+            } finally {
+                server.lock.writeLock().unlock();
+            }
+
             
         } catch (Exception e) {
             System.err.println("Error al crear el archivo de usuarios");
@@ -104,10 +124,17 @@ public class ProcesadorPokedex {
         }
 
         try {
-            FileWriter writer = new FileWriter("users.pok",true);
-            String user_pass = user + ":" + pass + "\n";
-            writer.write(user_pass);
-            writer.close();
+
+            server.lock.writeLock().lock();
+            try{
+                FileWriter writer = new FileWriter("./Pokedex/users.pok",true);
+                String user_pass = user + ":" + pass + "\n";
+                writer.write(user_pass);
+                writer.close();
+            } finally {
+                server.lock.writeLock().unlock();
+            }
+            
         } catch (Exception e) {
             System.err.println("Error al abrir el archivo de usuarios");
             String response = "499-ERROR-Error en el servidor";
@@ -116,6 +143,7 @@ public class ProcesadorPokedex {
 
         String response = "200-OK-Usuario registrado";
         user_logged = user;
+        server.login_usuario(user_logged);
         return response;
     }
     
@@ -123,10 +151,10 @@ public class ProcesadorPokedex {
         String response;
 
         try {
-            File fichero = new File("./" + user_logged + "/" + pokemon + ".pok");
+            File fichero = new File("./Pokedex/" + user_logged + "/" + pokemon + ".pok");
 
             if(fichero.createNewFile()){
-                response = "200-OK-Pokemon Registrado";
+                response = "202-OK-Pokemon registrado";
             }
             else{
                 response = "405-ERROR-Pokemon ya registrado";
@@ -141,7 +169,7 @@ public class ProcesadorPokedex {
 
     private void listarPokemon(PrintWriter outPrinter){
         String filename, pokemon;
-        File folder = new File("./" + user_logged + "/");
+        File folder = new File("./Pokedex/" + user_logged + "/");
         File[] listOfFiles = folder.listFiles();
 
         for(File file : listOfFiles){
@@ -152,7 +180,7 @@ public class ProcesadorPokedex {
             }
         }
 
-        outPrinter.println("200-OK-Listado Completado");
+        outPrinter.println("204-OK-Listado completado");
     }
 
 	// Aquí es donde se realiza el procesamiento realmente:
@@ -162,9 +190,7 @@ public class ProcesadorPokedex {
         Boolean servicio = true;
         String mensajes[];
         String response = null;
-        
-        System.out.println("Usuario Actual " + user_logged);
-		
+        		
 		try {
 			// Obtiene los flujos de escritura/lectura
 			PrintWriter outPrinter = new PrintWriter(socketServicio.getOutputStream(),true);
@@ -206,11 +232,16 @@ public class ProcesadorPokedex {
                 }
             }
 
+            server.logout_usuario(user_logged);
             outPrinter.println(response);
             			
 		} catch (IOException e) {
 			System.err.println("Error al obtener los flujos de entrada/salida.");
 		}
 
-	}
+    }
+    
+    public void run(){
+        procesa();
+    }
 }
