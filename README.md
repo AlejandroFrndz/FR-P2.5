@@ -1,6 +1,7 @@
 # FR-P2.5
 
 Mensajes:
+
     ERROR:
         401-ERROR-Ya existe este usuario
         402-ERROR-El usuario no existe
