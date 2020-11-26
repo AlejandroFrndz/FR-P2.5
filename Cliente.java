@@ -6,20 +6,27 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 
 public class Cliente {
-
+	
+	//Función para manejar la autenticación del usuario
+	//Devuelve el nombre de usuario autenticado en el servidor, "None" si no se ha podido realizar la autenticación con éxito o "-1" si se cancela la conexión
     private static String login(PrintWriter outPrinter, BufferedReader inReader){
         String opcion = "0";
 
         System.out.println("OPCIONES DEL LOGIN");
         System.out.println("1-Acceder");
         System.out.println("2-Registrarse");
+		System.out.println("3-Cancelar");
 
         opcion = System.console().readLine();
 
-        while(!(opcion.equals("1")|| opcion.equals("2"))){
+        while(!(opcion.equals("1")|| opcion.equals("2") || opcion.equals("3"))){
             System.out.println("Opción incorrecta. Por favor introduzca una opción válida");
             opcion = System.console().readLine();
         }
+
+		if(opcion.equals("3")){
+			return "-1";
+		}
 
         System.out.println("Introduzca su nombre de usuario:");
         String username = System.console().readLine();
@@ -28,6 +35,7 @@ public class Cliente {
 
         String mensaje;
 
+		//En Función de la opción elegida (registro o autenticación) se envía el mensaje pertinente al servidor
         if(opcion.equals("1")){
             mensaje = "101-LOGIN-LOGIN-" + username + "-PASSWORD-" + passwd;
         }
@@ -58,12 +66,15 @@ public class Cliente {
 
     }
 
+	//Función para manejar el registro de un nuevo pokemon
     private static void registrarPokemon(PrintWriter outPrinter, BufferedReader inReader){
         String pokemon, response = null;
 
+		//Se introduce el nombre del pokemon a registrar
         System.out.println("Introduzca el nombre del pokemon a registrar:");
         pokemon = System.console().readLine();
 
+		//Se envía al servidor
         outPrinter.println("102-POK-" + pokemon);
 
         try {
@@ -75,6 +86,7 @@ public class Cliente {
         String partes[];
         partes = response.split("-");
 
+		//Y se recoge y muestra la respuesta del servidor
         if(partes[1].equals("ERROR")){
             System.out.println(partes[1] + " " + partes[2]);
         }
@@ -84,13 +96,16 @@ public class Cliente {
         
     }
 
+	//Función para el listado de los pokemons registrados
     private static void listarPokemon(PrintWriter outPrinter, BufferedReader inReader){
-        outPrinter.println("103-LIST");
+        outPrinter.println("103-LIST");	//Se manda la petición de listado al servidor
         String response;
         String partes[];
         Boolean seguir = true;
 
         System.out.println("Los pokemons recogidos en tu pokedex son:");
+
+		//Y se recogen y muestran los nombres devueltos por el servidor
         while(seguir){
             try {
                 response = inReader.readLine();
@@ -103,8 +118,8 @@ public class Cliente {
             if(partes[0].equals("203")){
                 System.out.println(partes[2]);
             }
-            else{
-                seguir = false;
+            else if(partes[0].equals("204")){
+                seguir = false;	//Hasta que este indique el final del listado
             }
         }
     }
@@ -132,10 +147,24 @@ public class Cliente {
             PrintWriter outPrinter = new PrintWriter(socketServicio.getOutputStream(),true);
             BufferedReader inReader = new BufferedReader(new InputStreamReader(socketServicio.getInputStream()));
 
+			//Se realiza la función de login hasta que se autentifique un usuario o se cancele la conexión
             do{
                 user = login(outPrinter,inReader);
             }while(user.equals("None"));
 
+			//En caso de que se cancele la conexión, se envía el LOGOUT al servidor, se espera a su respuesta, se cierra el socket y se mata el proceso
+			if(user.equals("-1")){
+				outPrinter.println("105-LOGOUT");
+				try {
+					cadenaRecibida = inReader.readLine();
+				} catch (IOException e) {
+					System.out.println("Error al recibir la despedida del servidor");
+				}
+				socketServicio.close();
+				return;
+			}
+
+			//Bucle principal del cliente. Se presetan las opciones disponibles y se llama a las funciones manejadoras de cada opcion según corresponda
             do{
                 System.out.println("MENÚ");
                 System.out.println("1-Registrar Pokemon");

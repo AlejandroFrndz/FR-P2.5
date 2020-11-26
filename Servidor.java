@@ -6,18 +6,21 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.net.ServerSocket;
 
 public class Servidor {
-	private ArrayList<String> usuarios_activos = new ArrayList<String>();
+	private ArrayList<String> usuarios_activos = new ArrayList<String>();	//Lista que recoge los usuarios con sesión activa
 
-	public ReadWriteLock lock = new ReentrantReadWriteLock();
+	public ReadWriteLock lock = new ReentrantReadWriteLock();	//Cerrojo para el acceso concurrente a users.pok
 
+	//Registrar una nueva sesión activa
 	public void login_usuario(String usuario){
 		usuarios_activos.add(usuario);
 	}
 
+	//Finalizar una sesión activa
 	public void logout_usuario(String usuario){
 		usuarios_activos.remove(usuario);
 	}
 
+	//Comprobar si un usuario determinado tiene una sesión activa
 	public Boolean isLogged(String usuario){
 		return usuarios_activos.contains(usuario);
 	}
@@ -46,9 +49,7 @@ public class Servidor {
 					System.out.println("Error: no se pudo aceptar la conexión solicitada");
 				}
 				
-				// Creamos un objeto de la clase ProcesadorYodafy, pasándole como 
-				// argumento el nuevo socket, para que realice el procesamiento
-				// Este esquema permite que se puedan usar hebras más fácilmente.
+				//Creamos un procesador, pasandole como parámetros el socket donde servir al cliente y el objeto servidor para las sesiones y el cerrojo compartido por todos
 				ProcesadorPokedex procesador=new ProcesadorPokedex(socketServicio,server);
                 procesador.start();
 				
