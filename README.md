@@ -1,5 +1,5 @@
 # FR-P2.5
-
+Autores: Alejandro Fernández Alcaide [GitHub](https://github.com/AlejandroFrndz) y Víctor Díaz Bustos [GitHub](https://github.com/victordiazb00)\
 Mensajes:
 
     ERROR:
